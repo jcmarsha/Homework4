@@ -1,0 +1,13 @@
+---
+title: "Homework 4"
+format: html
+embed-resources: true
+editor: visual
+author: Cole Marshall
+---
+
+## Homework 4
+
+```{r}
+
+```
