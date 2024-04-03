@@ -89,7 +89,9 @@ Eldenring_tf_idf %>%
 ```
 
 ```{r}
-comments <- get_user_content("Emeowykay")
+
+comments <- readRDS("comments")
+
 user <- comments[[1]]$comments
 
 # Initialize an empty list to store filtered tokens with identifiers
