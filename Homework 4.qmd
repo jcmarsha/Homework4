@@ -9,5 +9,137 @@ author: Cole Marshall
 ## Homework 4
 
 ```{r}
+library(RedditExtractoR)
+library(tidyr)
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+```
 
+```{r}
+top_Eldenring_urls <- readRDS("top_Eldenring_urls")
+
+top_Eldenring_urls <-top_Eldenring_urls %>%  filter(!is.na(text) & text != "")
+
+top_Eldenring_urls$text <- as.character(top_Eldenring_urls$text)
+
+```
+
+```{r}
+library(tidytext)
+
+# Initialize a list to store unnested word objects
+post_list <- list()
+
+# Iterate over each row of the dataframe
+for (i in 1:nrow(top_Eldenring_urls)) {
+  # Read the text from the 4th column
+  post_text <- top_Eldenring_urls[i, 4]
+  
+  # Convert to character
+  post_text <- as.character(post_text)
+  
+  # Create a dataframe with the text
+  post_df <- data.frame(text = post_text)
+  
+  # Unnest tokens
+  post_unnested <- unnest_tokens(post_df, word, text)
+  
+  # Antijoin with Stopwords for all objects in list
+  post_unnested_filtered <- anti_join(post_unnested, stop_words, by = "word")
+
+  
+  # Store the unnested word object in the list
+  post_list[[paste0("post_", i)]] <- post_unnested
+}
+
+# Access each unnested word object using post_list$post_i
+
+
+```
+
+```{r}
+post_list_filtered <- lapply(post_list, anti_join, y = stop_words, by = "word")
+```
+
+```{r}
+
+all_posts_words <- bind_rows(
+  Map(function(post_df, post_name) {
+    mutate(post_df, post_name = post_name)
+  }, post_list_filtered, names(post_list_filtered))
+)
+
+Eldenring_tf_idf <- all_posts_words %>% 
+  count(post_name, word) %>% 
+  bind_tf_idf(word, post_name, n)
+
+
+# TF IDF across all posts in Elden Ring Subreddit
+
+Eldenring_tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  head(10) %>%
+  ggplot(aes(tf_idf, reorder(word, tf_idf))) +
+  geom_col() +
+  labs(x = "TF-IDF", y = NULL) +
+  theme(axis.text.y = element_text(size = 8))
+
+
+```
+
+```{r}
+comments <- get_user_content("Emeowykay")
+user <- comments[[1]]$comments
+
+# Initialize an empty list to store filtered tokens with identifiers
+user_list <- list()
+
+# Iterate over each row of the dataframe
+for (i in 1:nrow(user)) {
+  # Read the text from the appropriate column (ensure this is the correct column)
+  user_text <- as.character(user[i, 8])
+  
+  # Assume the row number (i) as the comment identifier for simplicity
+  comment_id <- as.character(i)  # Convert row number to character to serve as an ID
+  
+  # Create a dataframe with the text and include the comment ID
+  user_df <- data.frame(comment_id = comment_id, text = user_text)
+  
+  # Unnest tokens
+  user_unnested <- unnest_tokens(user_df, word, text)
+  
+  # Anti-join with stopwords
+  user_unnested_filtered <- anti_join(user_unnested, stop_words, by = "word")
+  
+  # Store the filtered unnested word object in the list
+  user_list[[i]] <- user_unnested_filtered
+}
+
+# Combine all data frames into one, ensuring each row has a comment ID and the associated word
+combined_df <- bind_rows(user_list)
+combined_df <- anti_join(combined_df, stop_words, by = "word")
+```
+
+```{r}
+
+# Now you have `combined_df` with two columns: `comment_id` and `word`
+# Proceed with any further analysis like TF-IDF on this combined data frame
+
+tf_idf <- combined_df %>%
+  count(comment_id, word) %>%
+  bind_tf_idf(word, comment_id, n)
+
+# Plot the top 10 TF-IDF scores
+tf_idf_ordered <- tf_idf %>%
+  arrange(desc(tf_idf)) %>%
+  slice_max(order_by = tf_idf, n = 5)  # Explicitly selecting top 10
+
+tf_idf_ordered %>%
+  arrange(desc(tf_idf)) %>%
+  head(10) %>%
+  ggplot(aes(tf_idf, reorder(word, tf_idf))) +
+  geom_col() +
+  labs(x = "TF-IDF", y = NULL) +
+  theme(axis.text.y = element_text(size = 8))
 ```
